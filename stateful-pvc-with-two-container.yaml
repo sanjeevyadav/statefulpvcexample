@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: pvc-stateful
+spec:
+  selector:
+    matchLabels:
+      app: pvc-stateful 
+  serviceName: "my-http-lambda-servce"
+  replicas: 3
+  template:
+    metadata:
+      labels:
+        app: pvc-stateful 
+    spec:
+      terminationGracePeriodSeconds: 10
+      containers:
+      - name: first
+        image: httpd
+        volumeMounts:
+        - name: web-disk-template
+          mountPath: /data
+        livenessProbe:
+          httpGet:
+           path: /
+           port: 80
+           httpHeaders:
+           - name: Custom-Header
+             value: Awesome
+          initialDelaySeconds: 3
+          periodSeconds: 3
+      - name: second
+        image: tomcat
+        volumeMounts:
+        - name: web-disk-template
+          mountPath: /mnt
+        command: ["/bin/sh"]
+        args:
+          - "-c"
+          - >
+            while true; do
+              date >> /mnt/index.html;
+              echo Hello from the second container >> /mnt/index.html;
+              sleep 1;
+            done
+        livenessProbe:
+           exec:
+            command:
+            - cat
+            - /mnt/index.html
+           initialDelaySeconds: 5
+           periodSeconds: 5
+  volumeClaimTemplates:
+  - metadata:
+      name: web-disk-template
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      resources:
+        requests:
+          storage: 30Gi
